@@ -18,8 +18,10 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tidwall/sjson"
 	"io"
 	"io/ioutil"
 	"net"
@@ -38,6 +40,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
+	_ "github.com/tidwall/sjson"
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/prometheus/blackbox_exporter/config"
@@ -230,6 +233,36 @@ func (bc *byteCounter) Read(p []byte) (int, error) {
 	n, err := bc.ReadCloser.Read(p)
 	bc.n += int64(n)
 	return n, err
+}
+
+func ModuleHTTP(ctx context.Context, values url.Values, module config.Module, logger log.Logger) config.Module {
+	moduleByte, err := json.Marshal(module)
+	if err != nil {
+		return module
+	}
+
+	for key, value := range values {
+		if strings.HasPrefix(key, "HTTP.") && len(value) == 1 {
+			if strings.HasPrefix(key, "HTTP.ValidStatusCodes") {
+				if v, err := strconv.ParseInt(value[0], 10, 64); err == nil {
+					moduleByte, _ = sjson.SetBytes(moduleByte, key, v)
+				} else {
+					level.Error(logger).Log("msg", "Could not parse int", "err", err)
+				}
+			} else {
+				moduleByte, _ = sjson.SetBytes(moduleByte, key, value[0])
+			}
+		}
+	}
+
+	newModule := config.Module{}
+	if err := json.Unmarshal(moduleByte, &newModule); err != nil {
+		level.Error(logger).Log("msg", "Could not unmarshal new Module", "err", err)
+		return module
+	}
+
+	level.Debug(logger).Log("msg", "Modify module", "probe", module.Prober, "module", string(moduleByte), "new module", string(moduleByte))
+	return newModule
 }
 
 func ProbeHTTP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger log.Logger) (success bool) {

@@ -16,8 +16,10 @@ package prober
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/blackbox_exporter/config"
 	"hash/fnv"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -25,6 +27,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var ModuleNoopHandle = func(ctx context.Context, values url.Values, module config.Module, logger log.Logger) config.Module {
+	return module
+}
 
 var protocolToGauge = map[string]float64{
 	"ip4": 4,

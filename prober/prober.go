@@ -15,6 +15,7 @@ package prober
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,3 +24,5 @@ import (
 )
 
 type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger log.Logger) bool
+
+type ModuleUpdateFn func(ctx context.Context, values url.Values, module config.Module, logger log.Logger) config.Module
